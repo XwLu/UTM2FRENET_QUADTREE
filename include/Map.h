@@ -14,11 +14,8 @@ public:
     Map();
     ~Map();
 
-    bool loadMapFile(string path, Eigen::Vector4d& pts);
+    bool loadMapFile(string path);
     inline vector<WayPoint> refLine(){ return reference_line_;}
-
-    void addWPs();
-    inline void setQT(Quadtree* qt){qt4xy_ = qt;}
 
     Eigen::Vector2d getSD(double x, double y, double theta);
     Eigen::Vector2d getXY(double s, double d);

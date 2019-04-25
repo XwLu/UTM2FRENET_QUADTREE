@@ -33,29 +33,22 @@ Quadtree::~Quadtree() {
 }
 
 void Quadtree::AddObject(WayPoint *object) {
-    //cout<<"level: "<<level<<endl;
-    //cout<<"x: "<<object->x()<<" y: "<<object->y()<<endl;
     if (level == maxLevel){
         objects.push_back(object);
     }
     else if (contains(NW, object)){
-        //cout<<"1"<<endl;
         NW->AddObject(object);
     }
     else if (contains(NE, object)){
-        //cout<<"2"<<endl;
         NE->AddObject(object);
     }
     else if (contains(SW, object)){
-        //cout<<"3"<<endl;
         SW->AddObject(object);
     }
     else if (contains(SE, object)){
-        //cout<<"4"<<endl;
         SE->AddObject(object);
     }
     else if (contains(this, object)){
-        //cout<<"5"<<endl;
         objects.push_back(object);
     }
 }
@@ -76,20 +69,19 @@ vector<WayPoint*> Quadtree::GetObjectsAt(float _x, float _y) {
     const float halfWidth  = width * 0.5f;
     const float halfHeight = height * 0.5f;
 
-    //cout<<"x: "<<_x<<" y: "<<_y<<" ox: "<<x<<" oy: "<<y<<" hw: "<<halfWidth<<" hh: "<<halfHeight<<endl;
-
-    if (_x > x + halfWidth && _x < x + width){
-        if (_y > y + halfHeight && _y < y + height)
+    if (_x > x + halfWidth && _x <= x + width){
+        if (_y > y + halfHeight && _y <= y + height)
             childReturnObjects = SE->GetObjectsAt(_x, _y);
-        else if (_y > y && _y <= y + halfHeight)
+        else if (_y >= y && _y <= y + halfHeight)
             childReturnObjects = NE->GetObjectsAt(_x, _y);
     }
-    else if (_x > x && _x <= x + halfWidth){
-        if (_y > y + halfHeight && _y < y + height)
+    else if (_x >= x && _x <= x + halfWidth){
+        if (_y > y + halfHeight && _y <= y + height)
             childReturnObjects = SW->GetObjectsAt(_x, _y);
-        else if (_y > y && _y <= y + halfHeight)
+        else if (_y >= y && _y <= y + halfHeight)
             childReturnObjects = NW->GetObjectsAt(_x, _y);
     }
+
     if (childReturnObjects.size() > 0)
         returnObjects.insert(returnObjects.end(), childReturnObjects.begin(), childReturnObjects.end());
 

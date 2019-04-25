@@ -8,21 +8,27 @@
 
 using namespace std;
 
-Map::Map():qt4xy_(nullptr) {}
+Map::Map():qt4xy_(nullptr) {
 
-Map::~Map() {}
+}
 
-bool Map::loadMapFile(string map_file, Eigen::Vector4d& pts) {
+Map::~Map() {
+    free(qt4xy_);
+    delete(qt4xy_);
+}
+
+bool Map::loadMapFile(string map_file) {
     double s = MY_INF;
     double last_x = MY_INF, last_y = MY_INF;
-
     std::ifstream in_map_(map_file.c_str(), std::ifstream::in);
     string line;
+    //地图的左下和右上角
     double minX = MY_INF;
     double minY = MY_INF;
     double maxX = -MY_INF;
     double maxY = -MY_INF;
     long long id = 0;
+    //逐行获取地图内容
     while (getline(in_map_, line)) {
         std::istringstream iss(line);
         double x;
@@ -44,13 +50,27 @@ bool Map::loadMapFile(string map_file, Eigen::Vector4d& pts) {
         maxX = (maxX > x)?maxX : x;
         maxY = (maxY > y)?maxY : y;
     }
-
     if(reference_line_.empty()){
         cerr<<"No data in map file!"<<endl;
         return false;
     }
+    //留出一定的裕度，然而超过这个裕度，四叉树就搜索不到了，一般来说检索地图的时候也不会检索距离reference line很远的点
+    minX -= 100;
+    minY -= 100;
+    maxX += 100;
+    maxY += 100;
 
-    pts = {minX, minY, maxX, maxY};
+    //根据地图的左下和右上角自适应调整四叉树层数
+    double width = maxX - minX;
+    double height = maxY - minY;
+    int level = getLevel(min(width, height), 100);
+    //level = 2;
+    //构建四叉树
+    qt4xy_ = new Quadtree(minX, minY, width, height, 1, level);
+    for(auto& pt : reference_line_){
+        qt4xy_->AddObject(&pt);
+    }
+
     return true;
 }
 
@@ -98,12 +118,14 @@ Eigen::Vector2d Map::getSD(double x, double y, double theta) {
     //投影的垂线就是d的模
     double d = dist2Pts(fx_x, fy_y, proj_x, proj_y);
     //d的正负判断
-    double c_x = 1000-reference_line_[pre_id].x();
-    double c_y = 2000-reference_line_[pre_id].y();
-    double c2p = dist2Pts(c_x, c_y, fx_x, fy_y);
-    double c2r = dist2Pts(c_x, c_y, proj_x, proj_y);
-    if(c2p <= c2r)
+
+    double tmp = (reference_line_[pre_id].y() - reference_line_[next_id].y()) * x +
+            (reference_line_[next_id].x() - reference_line_[pre_id].x()) * y +
+            reference_line_[pre_id].x()*reference_line_[next_id].y() -
+            reference_line_[next_id].x() * reference_line_[pre_id].y();
+    if(tmp > 0)
         d = -d;
+
     double s = reference_line_[pre_id].s();
     s += dist2Pts(0, 0, proj_x, proj_y);
     return Eigen::Vector2d(s, d);
@@ -137,7 +159,7 @@ int Map::findClosestWPQT(double x, double y) {
         return -1;
     }
     else{
-        cout<<"pts: "<<pts.size()<<endl;
+        //cout<<"pts: "<<pts.size()<<endl;
         sort(pts.begin(), pts.end(),
              [x, y](WayPoint* a, WayPoint* b)
              { return dist2Pts(a->x(), a->y(), x, y) < dist2Pts(b->x(), b->y(), x, y);});
@@ -147,10 +169,10 @@ int Map::findClosestWPQT(double x, double y) {
 
 int Map::nextWP(double x, double y, double theta) {
     int closest_id = findClosestWPQT(x, y);
-    cout<<"QT: "<<closest_id<<endl;
-    closest_id = findClosestWP(x, y);
-    cout<<"NQT: "<<closest_id<<endl;
-    cout<<"distance: "<<dist2Pts(reference_line_[closest_id].x(), reference_line_[closest_id].y(), x, y)<<endl;
+    //cout<<"QT based search: "<<closest_id<<endl;
+    //closest_id = findClosestWP(x, y);
+    //cout<<"Brute-force search: "<<closest_id<<endl;
+    //cout<<"distance: "<<dist2Pts(reference_line_[closest_id].x(), reference_line_[closest_id].y(), x, y)<<endl;
     if(closest_id < 0){
         return -1;
     }
@@ -174,10 +196,4 @@ int Map::nextWP(double x, double y, double theta) {
         }
     }
     return closest_id;
-}
-
-void Map::addWPs() {
-    for(auto& pt : reference_line_){
-        qt4xy_->AddObject(&pt);
-    }
 }
